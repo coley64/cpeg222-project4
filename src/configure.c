@@ -47,55 +47,41 @@ void configure_tim5(void){
 }
     
 void PWM_Output_PC6_Init(void) {
-    // 1. Enable GPIO Clock
+    // 1. Enable GPIOC clock
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
     
-    // 2. Configure PC6 as Alternate Function
-    GPIOC->MODER &= ~GPIO_MODER_MODER6;      // Clear mode bits
-    GPIOC->MODER |= GPIO_MODER_MODER6_1;     // Alternate function mode
-    
-    // 3. Set AF3 for TIM8_CH1 (PC6 uses AF3 for TIM8, not AF2)
-    GPIOC->AFR[0] &= ~(0xF << (6 * 4));      // Clear AF bits
-    GPIOC->AFR[0] |= (3 << (6 * 4));         // AF3 for TIM8_CH1
-    
-    // 4. Enable TIM8 Clock (APB2 for advanced timers)
-    RCC->APB2ENR |= RCC_APB2ENR_TIM8EN;
-    
-    // 5. Configure TIM8 for PWM
-    TIM8->PSC = 16 - 1;                      // 16MHz/16 = 1MHz timer (1µs resolution)
-    TIM8->ARR = 20000 - 1;                   // 20ms period (50Hz servo frequency)
-    
-    // 6. Configure Channel 1 for PWM Mode 1
-    TIM8->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2;  // PWM mode 1 (110)
-    TIM8->CCMR1 |= TIM_CCMR1_OC1PE;          // Output compare preload enable
-    
-    // 7. Enable Channel 1 output
-    TIM8->CCER |= TIM_CCER_CC1E;             // Capture/Compare 1 output enable
-    
-    // 8. Advanced timer specific configurations
-    TIM8->CR1 |= TIM_CR1_ARPE;               // Auto-reload preload enable
-    TIM8->BDTR |= TIM_BDTR_MOE;              // MAIN OUTPUT ENABLE - CRITICAL FOR ADVANCED TIMERS!
-    
-    // 9. Generate update event and start timer
-    TIM8->EGR |= TIM_EGR_UG;                 // Generate update
-    TIM8->CR1 |= TIM_CR1_CEN;                // Counter enable
-    
-    // 10. Set initial pulse width (stop position)
-    TIM8->CCR1 = 1500;                       // 1500µs = stop
-}
+    // ===== PC6 setup (TIM8_CH1) =====
+    GPIOC->MODER &= ~GPIO_MODER_MODER6;
+    GPIOC->MODER |= GPIO_MODER_MODER6_1;      // AF mode
+    GPIOC->AFR[0] &= ~(0xF << (6*4));
+    GPIOC->AFR[0] |= 3 << (6*4);             // AF3 for TIM8_CH1
 
-void init_adc(void) {
-    // Enable GPIOA clock
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
-    // Set PA1 to analog mode
-    ANALOG_PORT->MODER &= ~(0x3 << (ANALOG_PIN * 2));
-    ANALOG_PORT->MODER |=  (0x3 << (ANALOG_PIN * 2));
-    // Enable ADC1 clock
-    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-    // Select channel in regular sequence (SQR3)
-    ADC1->SQR3 = (ADC_CHANNEL & 0x1F);
-    // Sample time for channel 1 (SMPR2 holds channels 0..9)
-    ADC1->SMPR2 = ADC_SMPR2_SMP1_0 | ADC_SMPR2_SMP1_1;
-    // Turn on ADC
-    ADC1->CR2 = ADC_CR2_ADON;
+    // ===== PC8 setup (TIM8_CH3) =====
+    GPIOC->MODER &= ~GPIO_MODER_MODER8;
+    GPIOC->MODER |= GPIO_MODER_MODER8_1;      // AF mode
+    GPIOC->AFR[1] &= ~(0xF << ((8-8)*4));     // AFRH for pins 8–15
+    GPIOC->AFR[1] |= 3 << ((8-8)*4);          // AF3 for TIM8_CH3
+
+    // 2. Enable TIM8 clock
+    RCC->APB2ENR |= RCC_APB2ENR_TIM8EN;
+
+    // 3. Configure TIM8
+    TIM8->PSC = 16 - 1;          // 1MHz timer
+    TIM8->ARR = 20000 - 1;       // 20ms period (50Hz)
+
+    // ===== Channel 1 PWM =====
+    TIM8->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2; // PWM mode 1
+    TIM8->CCMR1 |= TIM_CCMR1_OC1PE;                     // Preload enable
+    TIM8->CCER |= TIM_CCER_CC1E;                        // Enable CH1 output
+
+    // ===== Channel 3 PWM =====
+    TIM8->CCMR2 |= TIM_CCMR2_OC3M_1 | TIM_CCMR2_OC3M_2; // PWM mode 1
+    TIM8->CCMR2 |= TIM_CCMR2_OC3PE;                     // Preload enable
+    TIM8->CCER |= TIM_CCER_CC3E;                        // Enable CH3 output
+
+    // 4. Advanced timer settings
+    TIM8->CR1 |= TIM_CR1_ARPE;    // Auto-reload preload
+    TIM8->BDTR |= TIM_BDTR_MOE;   // Main output enable
+    TIM8->EGR |= TIM_EGR_UG;      // Generate update
+    TIM8->CR1 |= TIM_CR1_CEN;     // Start counter
 }
