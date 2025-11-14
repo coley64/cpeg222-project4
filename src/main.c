@@ -45,32 +45,24 @@ volatile int currentIR;
 
 void servo_pwm_set(int pwm_width_left, int pwm_width_right);
 // --------------------- Interrupt Handlers ---------------------
-void SysTick_Handler(void) {
-  if (USART2->CR1 & USART_CR1_UE) { // if USART2 enabled
-    if (line_detected <= 2) {
-        move = false; // stop moving
-        servo_pwm_set(1500, 1500); // neutral position
-    }
-  }
-}
+ void SysTick_Handler(void) {
+ }
 
 // update SSD
 void TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
-    uint8_t b3 = (currentIR >> 3) & 1; // leftmost
-    uint8_t b2 = (currentIR >> 2) & 1;
-    uint8_t b1 = (currentIR >> 1) & 1;
-    uint8_t b0 = (currentIR >> 0) & 1;
+    uint8_t b0 = (currentIR >> 3) & 1; // leftmost
+    uint8_t b1 = (currentIR >> 2) & 1;
+    uint8_t b2 = (currentIR >> 1) & 1;
+    uint8_t b3 = (currentIR >> 0) & 1;
 
     int display_val = b3*1000 + b2*100 + b1*10 + b0;
 
     // then in TIM2_IRQHandler:
     SSD_update(digitSelect, display_val, 0);
-
-        digitSelect = (digitSelect + 1) % 4;
-
-        // Clear timer interrupt
-        TIM2->SR &= ~TIM_SR_UIF;
+    digitSelect = (digitSelect + 1) % 4;
+    // Clear timer interrupt
+    TIM2->SR &= ~TIM_SR_UIF;
     }
 }
 
@@ -79,7 +71,7 @@ void TIM2_IRQHandler(void) {
 void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR & (1 << BTN_PIN)) {
         if (!move) {
-            servo_pwm_set(1576, 1420); // left = CCW, right = CW
+            servo_pwm_set(1576, 1419); // left = CCW, right = CW
             move = true; // start moving
         } else {
             move = false; // stop moving
