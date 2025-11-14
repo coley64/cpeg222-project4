@@ -40,7 +40,8 @@ uint8_t ssd_digits[4];
 volatile int digitSelect = 0;
 volatile bool move = false;
 volatile int line_detected = 0;
-volatile int IRSensorReading = 0;
+volatile int currentIR;
+
 
 void servo_pwm_set(int pwm_width_left, int pwm_width_right);
 // --------------------- Interrupt Handlers ---------------------
@@ -56,10 +57,10 @@ void SysTick_Handler(void) {
 // update SSD
 void TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
-    uint8_t b3 = (IRSensorReading >> 3) & 1; // leftmost
-    uint8_t b2 = (IRSensorReading >> 2) & 1;
-    uint8_t b1 = (IRSensorReading >> 1) & 1;
-    uint8_t b0 = (IRSensorReading >> 0) & 1;
+    uint8_t b3 = (currentIR >> 3) & 1; // leftmost
+    uint8_t b2 = (currentIR >> 2) & 1;
+    uint8_t b1 = (currentIR >> 1) & 1;
+    uint8_t b0 = (currentIR >> 0) & 1;
 
     int display_val = b3*1000 + b2*100 + b1*10 + b0;
 
@@ -78,7 +79,7 @@ void TIM2_IRQHandler(void) {
 void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR & (1 << BTN_PIN)) {
         if (!move) {
-            servo_pwm_set(1570, 1425); // left = CCW, right = CW
+            servo_pwm_set(1576, 1420); // left = CCW, right = CW
             move = true; // start moving
         } else {
             move = false; // stop moving
@@ -139,22 +140,18 @@ int main(void) {
 
 
     // ------------------ Main loop ------------------
-
+// i wanna implement edge detection to increment on falling edge for IR sensor
+static uint8_t prevIR = 0x0F; // previous reading, initialized to no line detected
 while(1) {
-    IRSensorReading = IR_SENSOR_PORT->IDR & 0x0F;
+    currentIR = IR_SENSOR_PORT->IDR & 0x0F;
     if (line_detected >= 2) {
         move = false; // stop moving
         servo_pwm_set(1500, 1500); // neutral position
     }
-    if (IRSensorReading == 0) {
+    if (prevIR != 0 && currentIR == 0) { // falling edge detected
         line_detected += 1;
-        for (volatile uint32_t i = 0; i < 500000; i++) {}; // 
-
     }
-    // if (last_IRReading != 0x0 && IRSensorReading == 0x0) {
-    //     line_detected += 1;
-    //     // Optional blocking delay (1 sec)
-    //     for (volatile uint32_t i = 0; i < 16000000; i++) {};
+    prevIR = currentIR;
     }
 
   return 0;
